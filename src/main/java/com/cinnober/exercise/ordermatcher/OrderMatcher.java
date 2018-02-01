@@ -1,13 +1,13 @@
 /*
  * Copyright (c) 2014 Cinnober Financial Technology AB, Stockholm,
  * Sweden. All rights reserved.
- * 
+ *
  * This software is the confidential and proprietary information of
  * Cinnober Financial Technology AB, Stockholm, Sweden. You shall not
  * disclose such Confidential Information and shall use it only in
  * accordance with the terms of the license agreement you entered into
  * with Cinnober.
- * 
+ *
  * Cinnober makes no representations or warranties about the suitability
  * of the software, either expressed or implied, including, but not limited
  * to, the implied warranties of merchantibility, fitness for a particular
@@ -21,6 +21,9 @@ package com.cinnober.exercise.ordermatcher;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.stream.*;
+import java.util.*;
 
 /**
  * Order book with continuous matching of limit orders with time priority.
@@ -53,12 +56,15 @@ import java.util.List;
  */
 public class OrderMatcher {
 
+    ArrayList<Order> orders;
+
     /**
      * Create a new order matcher.
      */
     public OrderMatcher() {
+        orders = new ArrayList<>();
     }
-    
+
     /**
      * Add the specified order to the order book.
      *
@@ -66,8 +72,103 @@ public class OrderMatcher {
      * @return any trades that were created by this order, not null.
      */
     public List<Trade> addOrder(Order order) {
-        throw new UnsupportedOperationException("addOrder is not implemented yet"); // FIXME
+        // throw new UnsupportedOperationException("addOrder is not implemented yet"); // FIXME
+       switch (order.getSide()) {
+        case BUY:
+            return handleBuyOrder(order);
+        case SELL:
+            return handleSellOrder(order);
+        default:
+            return new ArrayList<Trade>();
+       }
+
     }
+
+    public List<Trade> handleBuyOrder(Order order) {
+        ArrayList<Trade> trades = new ArrayList<>();
+
+        Comparator<Order> c = new Comparator<Order>() {
+            @Override
+            public int compare(Order o1, Order o2) {
+                if (o1.getPrice() == o2.getPrice()) {
+                    return Long.compare(o2.getId(), o1.getId());
+                } else {
+                    return Long.compare(o2.getPrice(), o1.getPrice());
+                }
+            }
+        };
+
+        ArrayList<Order> possible = this.orders
+            .stream()
+            .filter(o -> order.getSide().equals(Side.SELL))
+            .filter(o -> o.getPrice() <= order.getPrice())
+            .sorted(c)
+            .collect(Collectors.toCollection(ArrayList::new));
+
+        System.out.print("NUMBER OF ORDERS: ");
+        System.out.println(this.orders.size());
+        System.out.print("POSSIBLE TRADES: ");
+        System.out.println(possible.size());
+
+        for (Order t : possible) {
+            long diff = t.getQuantity() - order.getQuantity();
+            if (diff > 0) {
+                // t wants to sell more than we wanna buy
+                trades.add(new Trade(order.getId(), t.getId(), t.getPrice(), order.getQuantity()));
+                t.setQuantity(diff);
+                return trades;
+            } else if (diff < 0) {
+                // we sell more than t wanna buy
+                trades.add(new Trade(order.getId(), t.getId(), t.getPrice(), t.getQuantity()));
+                order.setQuantity(-diff);
+                this.orders.remove(t);
+            } else {
+                // equal
+                trades.add(new Trade(order.getId(), t.getId(), t.getPrice(), order.getQuantity()));
+                this.orders.remove(t);
+                return trades;
+            }
+        }
+        this.orders.add(order);
+        return trades;
+    }
+
+    public List<Trade> handleSellOrder(Order order) {
+        ArrayList<Trade> trades = new ArrayList<>();
+        ArrayList<Order> possible = this.orders
+            .stream()
+            .filter(o -> order.getSide().equals(Side.BUY))
+            .filter(o -> o.getPrice() >= order.getPrice())
+            .sorted()
+            .collect(Collectors.toCollection(ArrayList::new));
+
+        System.out.print("POSSIBLE TRADES: ");
+        System.out.println(possible.size());
+
+        for (Order t : possible) {
+            long diff = t.getQuantity() - order.getQuantity();
+            if (diff > 0) {
+                // t wants to buy more
+                trades.add(new Trade(order.getId(), t.getId(), t.getPrice(), order.getQuantity()));
+                t.setQuantity(diff);
+                return trades;
+            } else if (diff < 0) {
+                // we sell more than t buys
+                trades.add(new Trade(order.getId(), t.getId(), t.getPrice(), t.getQuantity()));
+                order.setQuantity(-diff);
+                this.orders.remove(t);
+            } else {
+                // equal
+                trades.add(new Trade(order.getId(), t.getId(), t.getPrice(), order.getQuantity()));
+                this.orders.remove(t);
+                return trades;
+            }
+        }
+        this.orders.add(order);
+        return trades;
+    }
+
+
 
     /**
      * Returns all remaining orders in the order book, in priority order, for the specified side.
@@ -79,7 +180,11 @@ public class OrderMatcher {
      * @return all remaining orders in the order book, in priority order, for the specified side, not null.
      */
     public List<Order> getOrders(Side side) {
-        throw new UnsupportedOperationException("getOrders is not implemented yet"); // FIXME
+        // throw new UnsupportedOperationException("getOrders is not implemented yet"); // FIXME
+        return this.orders
+            .stream()
+            .filter(o -> o.getSide().equals(side))
+            .collect(Collectors.toList());
     }
 
 

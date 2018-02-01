@@ -1,13 +1,13 @@
 /*
  * Copyright (c) 2014 Cinnober Financial Technology AB, Stockholm,
  * Sweden. All rights reserved.
- * 
+ *
  * This software is the confidential and proprietary information of
  * Cinnober Financial Technology AB, Stockholm, Sweden. You shall not
  * disclose such Confidential Information and shall use it only in
  * accordance with the terms of the license agreement you entered into
  * with Cinnober.
- * 
+ *
  * Cinnober makes no representations or warranties about the suitability
  * of the software, either expressed or implied, including, but not limited
  * to, the implied warranties of merchantibility, fitness for a particular
@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  *
  * <p>An order has a side (buy/sell), quantity and price. For example: buy 10 units @ 5 SEK each (or better price).
  */
-public class Order {
+public class Order implements Comparable<Order> {
     private static final Pattern PATTERN =
             Pattern.compile("(?<side>([bB][uU][yY])|([sS][eE][lL][lL]))[ ]+(?<qty>[0-9]+)[ ]*@[ ]*(?<px>[0-9]+)([ ]+#(?<id>[0-9]+))?");
     private static final String GROUP_ID = "id";
@@ -164,6 +164,12 @@ public class Order {
         return true;
     }
 
-    
-
+    @Override
+    public int compareTo(Order other) {
+        if (this.getPrice() == other.getPrice()) {
+            return Long.compare(this.getId(), this.getId());
+        } else {
+            return Long.compare(this.getPrice(), other.getPrice());
+        }
+    }
 }
